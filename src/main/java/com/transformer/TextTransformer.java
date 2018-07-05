@@ -1,5 +1,6 @@
 package com.transformer;
 
+import com.transformer.model.TransformationType;
 import com.transformer.model.TransformedOutput;
 import lombok.AccessLevel;
 import lombok.Getter;
@@ -9,6 +10,9 @@ import java.util.Arrays;
 import java.util.List;
 
 import static com.transformer.model.Keyboard.*;
+import static com.transformer.model.TransformationType.HORIZONTAL;
+import static com.transformer.model.TransformationType.LINEAR;
+import static com.transformer.model.TransformationType.VERTICAL;
 import static org.apache.commons.lang3.ArrayUtils.contains;
 import static org.apache.commons.lang3.ArrayUtils.indexOf;
 
@@ -24,64 +28,47 @@ public class TextTransformer {
         this.transformedOutput = new TransformedOutput();
     }
 
-    private TransformedOutput horizontalFlip(List<String> text) {
-        transformedOutput.getHorizontalFlipValue().clear();
+    private TransformedOutput flip(List<String> text, TransformationType type) {
+        transformedOutput.clearValueForTransformation(type);
+        int arrayLen = HORIZONTAL.equals(type) ? ROW_COUNT : COLUMN_COUNT;
         boolean found;
         for (String letter : text) {
             found = false;
-            for (int j = 0; j < ROW_COUNT; j++) {
-                String[] row = getRow(j);
-                if (contains(row, letter)) {
+            for (int j = 0; j < arrayLen; j++) {
+                String[] arr = HORIZONTAL.equals(type) ? getRow(j) : getColumn(j);
+                if (contains(arr, letter)) {
                     found = true;
-                    int index = indexOf(row, letter);
-                    transformedOutput.getHorizontalFlipValue().add(row[(row.length - 1) - index]);
+                    int index = indexOf(arr, letter);
+                    transformedOutput.getListToAddTo(type).add(arr[(arr.length - 1) - index]);
                 }
             }
             if (!found) {
-                transformedOutput.getHorizontalFlipValue().add(letter);
-            }
-        }
-        return transformedOutput;
-    }
-
-    private TransformedOutput verticalFlip(List<String> text) {
-        transformedOutput.getVerticalFlipValue().clear();
-        boolean found;
-        for (String letter : text) {
-            found = false;
-            for (int j = 0; j < COLUMN_COUNT; j++) {
-                String[] column = getColumn(j);
-                if (contains(column, letter)) {
-                    found = true;
-                    int index = indexOf(column, letter);
-                    transformedOutput.getVerticalFlipValue().add(column[(column.length - 1) - index]);
-                }
-            }
-            if (!found) {
-                transformedOutput.getVerticalFlipValue().add(letter);
+                transformedOutput.getListToAddTo(type).add(letter);
             }
         }
         return transformedOutput;
     }
 
     private TransformedOutput linearShift(List<String> text, int offset) {
-        transformedOutput.getLinearShiftValue().clear();
+        transformedOutput.clearValueForTransformation(LINEAR);
+        List<String> listToAddTo = transformedOutput.getListToAddTo(LINEAR);
+
         for (String letter : text) {
             if (contains(ALL_KEYS, letter)) {
                 int index = indexOf(ALL_KEYS, letter);
                 if (offset <= 0) {  // Left shift
                     if (offset % KEY_COUNT == 0) { // No effective shift
-                        transformedOutput.getLinearShiftValue().add(ALL_KEYS[index]);
+                        listToAddTo.add(ALL_KEYS[index]);
                     } else if ((index + (offset % 40)) < 0) {
-                        transformedOutput.getLinearShiftValue().add(ALL_KEYS[KEY_COUNT + (index + (offset % 40))]);
+                        listToAddTo.add(ALL_KEYS[KEY_COUNT + (index + (offset % 40))]);
                     } else {
-                        transformedOutput.getLinearShiftValue().add(ALL_KEYS[index + (offset % 40)]);
+                        listToAddTo.add(ALL_KEYS[index + (offset % 40)]);
                     }
                 } else { // Right shift
-                    transformedOutput.getLinearShiftValue().add(ALL_KEYS[(index + (offset % KEY_COUNT)) % KEY_COUNT]);
+                    listToAddTo.add(ALL_KEYS[(index + (offset % KEY_COUNT)) % KEY_COUNT]);
                 }
             } else {
-                transformedOutput.getLinearShiftValue().add(letter);
+                listToAddTo.add(letter);
             }
         }
         return transformedOutput;
@@ -92,16 +79,15 @@ public class TextTransformer {
         for (String trans: transformations) {
             switch (trans) {
                 case "H":
-                    outputChars = horizontalFlip(new ArrayList<>(outputChars)).getHorizontalFlipValue();
+                    outputChars = flip(new ArrayList<>(outputChars), HORIZONTAL).getHorizontalFlipValue();
                     break;
                 case "V":
-                    outputChars = verticalFlip(new ArrayList<>(outputChars)).getVerticalFlipValue();
+                    outputChars = flip(new ArrayList<>(outputChars), VERTICAL).getVerticalFlipValue();
                     break;
                 default:
                     try {
                         outputChars = linearShift(new ArrayList<>(outputChars), Integer.valueOf(trans)).getLinearShiftValue();
                     } catch (NumberFormatException nfe) {
-                        System.out.println(nfe);
                         // Ignore
                     }
             }
